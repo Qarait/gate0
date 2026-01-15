@@ -39,26 +39,26 @@ Gate0 is a micro-policy engine. This document defines what it defends against, w
 
 ---
 
-## Invariants
+### Invariants
 
-These are mechanical truths the system guarantees. Violations are bugs.
+Gate0 maintains several core invariants to remain defensible:
 
-### Termination
+1.  **Termination**: All evaluation logic is non-recursive and stack-based. Depth is checked at construction.
+2.  **Determinism**: Policy results are stable across identical requests and restarts.
+3.  **Memory Safety**: Zero use of `unsafe` in core library; zero leaks in evaluation paths.
+4.  **Resource Bounds**:
+    *   **Rule Count**: Maximum rules per policy ($R$)
+    *   **Condition Depth**: Maximum nesting in conditions ($D$)
+    *   **Context Size**: Maximum attributes in request context ($C$)
+    *   **Matcher Options**: Maximum items in `OneOf` lists ($M$)
+    *   **String Length**: Maximum length of any identifier or value ($L$)
+5.  **Fail-Closed**: By default, any unmatched request or evaluation error returns `Deny`.
 
-- Evaluation always terminates in O(n × d) where n = rule count, d = max condition depth
-- No recursion is used in condition evaluation (stack-based traversal)
-- All loops are bounded by policy configuration limits
+### Mechanical Proofs
 
-### Determinism
-
-- Same policy + same request = same decision, always
-- Rule order is semantically significant and preserved
-- No randomness, no timestamps, no external state
-
-### Memory Safety
-
-- No `unsafe` blocks in library code
-- No panics in core logic (all `.expect()` replaced with `Result`)
+- **No Recursion**: Both validation and evaluation are implemented using manual stacks.
+- **Panic-Free**: All operations return `Result`.
+- **Pre-allocation**: Evaluation stacks are pre-allocated based on known depth bounds.
 - All operations are fallible and return explicit errors
 
 ### Bounds Enforcement

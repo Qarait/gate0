@@ -19,6 +19,8 @@ pub struct PolicyConfig {
     pub max_context_attrs: usize,
     /// Maximum number of items in a Matcher::OneOf list (default: 64).
     pub max_matcher_options: usize,
+    /// Maximum length of any string identifier or value (default: 256).
+    pub max_string_len: usize,
 }
 
 impl Default for PolicyConfig {
@@ -28,6 +30,7 @@ impl Default for PolicyConfig {
             max_condition_depth: 10,
             max_context_attrs: 64,
             max_matcher_options: 64,
+            max_string_len: 256,
         }
     }
 }
@@ -100,17 +103,17 @@ impl<'a> Policy<'a> {
             });
         }
 
-        // Validate condition depths
+        // Validate rules and condition depths
         for rule in &rules {
-            // Validate condition depth
+            // Validate matcher options and string lengths
+            rule.target.principal.validate(config.max_matcher_options, config.max_string_len)?;
+            rule.target.action.validate(config.max_matcher_options, config.max_string_len)?;
+            rule.target.resource.validate(config.max_matcher_options, config.max_string_len)?;
+            
+            // Validate condition depth and string lengths
             if let Some(cond) = &rule.condition {
-                cond.validate_depth(config.max_condition_depth)?;
+                cond.validate(config.max_condition_depth, config.max_string_len)?;
             }
-
-            // Validate matcher options (enforce bounds on Matcher::OneOf)
-            rule.target.principal.validate_options(config.max_matcher_options)?;
-            rule.target.action.validate_options(config.max_matcher_options)?;
-            rule.target.resource.validate_options(config.max_matcher_options)?;
         }
 
         Ok(Policy { rules, config })
@@ -399,6 +402,47 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }));
+    }
+
+    #[test]
+    fn test_string_too_long_matcher() {
+        let config = PolicyConfig {
+            max_string_len: 5,
+            ..PolicyConfig::default()
+        };
+        
+        let target = Target {
+            principal: Matcher::Exact("too-long-string"),
+            action: Matcher::Any,
+            resource: Matcher::Any,
+        };
+        
+        let rule = Rule::allow(target, ReasonCode(1));
+        let result = Policy::with_config(vec![rule], config);
+        
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PolicyError::StringTooLong { max: 5, actual: 15 }));
+    }
+
+    #[test]
+    fn test_string_too_long_condition() {
+        let config = PolicyConfig {
+            max_string_len: 5,
+            ..PolicyConfig::default()
+        };
+        
+        let cond = Condition::Equals {
+            attr: "role",
+            value: Value::String("administrator"),
+        };
+        
+        let rule = Rule::new(Effect::Allow, Target::any(), Some(cond), ReasonCode(1));
+        let result = Policy::with_config(vec![rule], config);
+        
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, PolicyError::StringTooLong { max: 5, actual: 13 }));
     }
 
     #[test]

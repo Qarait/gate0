@@ -48,8 +48,9 @@ impl<'a> Condition<'a> {
             Computed(usize),
         }
 
-        let mut stack = vec![DepthItem::Visit(self)];
-        let mut results = Vec::with_capacity(8);
+        let mut stack = Vec::with_capacity(32);
+        stack.push(DepthItem::Visit(self));
+        let mut results = Vec::with_capacity(16);
 
         while let Some(item) = stack.pop() {
             match item {
@@ -83,17 +84,41 @@ impl<'a> Condition<'a> {
         results.pop().unwrap_or(0)
     }
 
-    /// Validate that this condition does not exceed the maximum depth.
-    pub fn validate_depth(&self, max_depth: usize) -> Result<(), PolicyError> {
-        let actual = self.depth();
-        if actual > max_depth {
-            Err(PolicyError::ConditionTooDeep {
+    /// Validate that this condition does not exceed the maximum depth
+    /// and that all strings are within length limits.
+    ///
+    /// This implementation is non-recursive.
+    pub fn validate(&self, max_depth: usize, max_string_len: usize) -> Result<(), PolicyError> {
+        // First check depth (already non-recursive)
+        let actual_depth = self.depth();
+        if actual_depth > max_depth {
+            return Err(PolicyError::ConditionTooDeep {
                 max: max_depth,
-                actual,
-            })
-        } else {
-            Ok(())
+                actual: actual_depth,
+            });
         }
+
+        // Then check string lengths non-recursively
+        let mut stack = vec![self];
+        while let Some(cond) = stack.pop() {
+            match cond {
+                Condition::True | Condition::False => {}
+                Condition::Equals { attr, value } | Condition::NotEquals { attr, value } => {
+                    validate_str(attr, max_string_len)?;
+                    if let Value::String(s) = value {
+                        validate_str(s, max_string_len)?;
+                    }
+                }
+                Condition::Not(inner) => {
+                    stack.push(inner);
+                }
+                Condition::And(a, b) | Condition::Or(a, b) => {
+                    stack.push(b);
+                    stack.push(a);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Evaluate this condition against the given context.
@@ -113,7 +138,8 @@ impl<'a> Condition<'a> {
             ApplyOr,
         }
 
-        let mut stack: Vec<StackItem<'a, '_>> = vec![StackItem::Eval(self)];
+        let mut stack: Vec<StackItem<'a, '_>> = Vec::with_capacity(32);
+        stack.push(StackItem::Eval(self));
         // Pre-allocate results stack to avoid mid-evaluation allocations.
         // Capacity is small because depth is strictly bounded at construction.
         let mut results: Vec<bool> = Vec::with_capacity(16);
@@ -175,6 +201,18 @@ impl<'a> Condition<'a> {
 /// Look up an attribute in the context by name.
 fn lookup_attr<'a, 'b>(context: &'b [(&'b str, Value<'a>)], name: &str) -> Option<&'b Value<'a>> {
     context.iter().find(|(k, _)| *k == name).map(|(_, v)| v)
+}
+
+/// Validate that a string does not exceed the maximum allowed length.
+fn validate_str(s: &str, max_len: usize) -> Result<(), PolicyError> {
+    if s.len() > max_len {
+        Err(PolicyError::StringTooLong {
+            max: max_len,
+            actual: s.len(),
+        })
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -291,8 +329,8 @@ mod tests {
             Box::new(Condition::True),
             Box::new(Condition::False),
         );
-        assert!(c.validate_depth(10).is_ok());
-        assert!(c.validate_depth(2).is_ok());
+        assert!(c.validate(10, 256).is_ok());
+        assert!(c.validate(2, 256).is_ok());
     }
 
     #[test]
@@ -302,8 +340,8 @@ mod tests {
             Box::new(Condition::Not(Box::new(Condition::False))),
         );
         // Depth is 3
-        assert!(c.validate_depth(2).is_err());
-        let err = c.validate_depth(2).unwrap_err();
+        assert!(c.validate(2, 256).is_err());
+        let err = c.validate(2, 256).unwrap_err();
         assert_eq!(
             err,
             PolicyError::ConditionTooDeep { max: 2, actual: 3 }

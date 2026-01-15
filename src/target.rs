@@ -52,16 +52,36 @@ impl<'a> Matcher<'a> {
         }
     }
 
-    /// Validate that this matcher does not exceed the maximum options.
-    pub fn validate_options(&self, max_options: usize) -> Result<(), PolicyError> {
-        if let Matcher::OneOf(options) = self {
-            if options.len() > max_options {
-                return Err(PolicyError::TooManyMatcherOptions {
-                    max: max_options,
-                    actual: options.len(),
-                });
+    /// Validate that this matcher does not exceed the maximum options
+    /// and that all strings are within length limits.
+    pub fn validate(&self, max_options: usize, max_string_len: usize) -> Result<(), PolicyError> {
+        match self {
+            Matcher::Any => Ok(()),
+            Matcher::Exact(s) => validate_str(s, max_string_len),
+            Matcher::OneOf(options) => {
+                if options.len() > max_options {
+                    return Err(PolicyError::TooManyMatcherOptions {
+                        max: max_options,
+                        actual: options.len(),
+                    });
+                }
+                for opt in *options {
+                    validate_str(opt, max_string_len)?;
+                }
+                Ok(())
             }
         }
+    }
+}
+
+/// Validate that a string does not exceed the maximum allowed length.
+fn validate_str(s: &str, max_len: usize) -> Result<(), PolicyError> {
+    if s.len() > max_len {
+        Err(PolicyError::StringTooLong {
+            max: max_len,
+            actual: s.len(),
+        })
+    } else {
         Ok(())
     }
 }
@@ -147,10 +167,10 @@ mod tests {
         let m = Matcher::OneOf(&options);
         
         // Ok if within limit
-        assert!(m.validate_options(3).is_ok());
+        assert!(m.validate(3, 256).is_ok());
         
         // Err if over limit
-        let err = m.validate_options(2).unwrap_err();
+        let err = m.validate(2, 256).unwrap_err();
         assert!(matches!(err, PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }));
     }
 }

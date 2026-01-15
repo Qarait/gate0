@@ -56,6 +56,14 @@ pub enum PolicyError {
         actual: usize,
     },
 
+    /// A string (identifier or value) exceeds the maximum allowed length.
+    StringTooLong {
+        /// The configured maximum length.
+        max: usize,
+        /// The actual length of the string.
+        actual: usize,
+    },
+
     /// Internal invariant violation. Should never occur in correct usage.
     InternalError,
 }
@@ -102,6 +110,13 @@ impl fmt::Display for PolicyError {
                 write!(
                     f,
                     "matcher exceeds maximum options of {}, got {}",
+                    max, actual
+                )
+            }
+            PolicyError::StringTooLong { max, actual } => {
+                write!(
+                    f,
+                    "string exceeds maximum length of {}, got {}",
                     max, actual
                 )
             }
