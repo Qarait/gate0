@@ -64,6 +64,13 @@ pub enum PolicyError {
         actual: usize,
     },
 
+    /// The evaluation stack overflowed during condition evaluation.
+    /// This indicates a bug or a condition tree deeper than the hard cap.
+    EvalStackOverflow {
+        /// The maximum stack size.
+        max: usize,
+    },
+
     /// Internal invariant violation. Should never occur in correct usage.
     InternalError,
 }
@@ -119,6 +126,9 @@ impl fmt::Display for PolicyError {
                     "string exceeds maximum length of {}, got {}",
                     max, actual
                 )
+            }
+            PolicyError::EvalStackOverflow { max } => {
+                write!(f, "evaluation stack overflow (max: {})", max)
             }
             PolicyError::InternalError => {
                 write!(f, "internal error: stack invariant violation")

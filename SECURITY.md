@@ -92,9 +92,22 @@ Gate0 maintains several core invariants to remain defensible:
 
 - **No Recursion**: Both validation and evaluation are implemented using manual stacks.
 - **Panic-Free**: All operations return `Result`.
-- **Pre-allocation**: Evaluation stacks are pre-allocated based on known depth bounds.
 - **Safe Destruction**: Manual, stack-based `Drop` implementation for `Condition` prevents overflows during cleanup.
-- All operations are fallible and return explicit errors
+- **Zero Heap Allocations at Request-Time**: `Policy::evaluate` and `Condition::evaluate` use fixed-size, stack-allocated buffers (`FixedStack` with `MaybeUninit`).
+
+### Zero-Allocation Guarantee
+
+The evaluation hot-path performs **zero heap allocations**. Stack sizes are derived from the hard depth cap:
+
+| Stack | Size Formula | Value (D=16) | Proof |
+|-------|-------------|--------------|-------|
+| Traversal | `2*D + 2` | 34 items | Each And/Or pushes 1 op + 2 evals; worst case is left-leaning chain |
+| Results | `D + 2` | 18 items | Operators consume children before parent completes |
+
+- **Hard Cap**: `ABSOLUTE_MAX_CONDITION_DEPTH = 16`. Configs exceeding this are rejected.
+- **Verification**: `tests/allocations.rs` asserts 0 allocations across 1000 iterations per test.
+- **MIRI**: All `FixedStack` and evaluator tests pass under MIRI (no UB).
+
 
 ### Bounds Enforcement
 

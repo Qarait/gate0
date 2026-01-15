@@ -3,9 +3,33 @@
 //! Minimal expression language: Equals, NotEquals, And, Or, Not.
 //! Depth is checked at construction time.
 //! Evaluation is stack-based (non-recursive) to guarantee termination.
+//!
+//! # Zero-Allocation Guarantee
+//!
+//! The `evaluate()` function uses fixed-size, stack-allocated buffers.
+//! Stack sizes are derived from the absolute maximum condition depth:
+//!
+//! - **Traversal stack**: At most `2*D + 2` items.
+//!   Proof: For each And/Or node, we push 1 operator + 2 child evals.
+//!   At depth D, worst case is a left-leaning chain: D operators + D right-child evals + 1 leaf = 2D+1.
+//!
+//! - **Results stack**: At most `D + 2` items.
+//!   Proof: Each operator consumes its children before parent is processed.
 
 use crate::error::PolicyError;
+use crate::fixed_stack::FixedStack;
 use crate::value::Value;
+
+/// Hard compile-time cap on condition depth.
+/// PolicyConfig::max_condition_depth must be <= this value.
+/// This enables const-generic stack sizing for zero-allocation evaluation.
+pub const ABSOLUTE_MAX_CONDITION_DEPTH: usize = 16;
+
+/// Traversal stack size: 2*D + 2 (proven O(depth) bound).
+const TRAVERSAL_STACK_SIZE: usize = 2 * ABSOLUTE_MAX_CONDITION_DEPTH + 2;
+
+/// Results stack size: D + 2 (proven O(depth) bound).
+const VALUE_STACK_SIZE: usize = ABSOLUTE_MAX_CONDITION_DEPTH + 2;
 
 /// A boolean condition that can be evaluated against request context.
 #[derive(Debug, Clone, PartialEq)]
@@ -126,14 +150,18 @@ impl<'a> Condition<'a> {
 
     /// Evaluate this condition against the given context.
     ///
-    /// Uses stack-based evaluation to guarantee termination.
+    /// Uses fixed-size, stack-allocated buffers to guarantee zero heap allocations.
+    /// Stack sizes are derived from `ABSOLUTE_MAX_CONDITION_DEPTH` (see module docs).
+    ///
     /// Returns `Ok(true)` or `Ok(false)` if evaluation succeeds.
     /// Returns `Err` if a required attribute is missing or has wrong type.
     ///
     /// Note: Missing attributes return `Ok(false)` for Equals and `Ok(true)` for NotEquals.
     /// This is a deliberate design choice for fail-closed semantics.
     pub fn evaluate(&self, context: &[(&str, Value<'_>)]) -> Result<bool, PolicyError> {
-        // Stack-based evaluation to avoid recursion
+        // Stack-based evaluation with ZERO HEAP ALLOCATIONS.
+        // Stack items represent either a condition to evaluate or an operator to apply.
+        #[derive(Clone, Copy)]
         enum StackItem<'a, 'b> {
             Eval(&'b Condition<'a>),
             ApplyNot,
@@ -141,57 +169,57 @@ impl<'a> Condition<'a> {
             ApplyOr,
         }
 
-        let mut stack: Vec<StackItem<'a, '_>> = Vec::with_capacity(32);
-        stack.push(StackItem::Eval(self));
-        // Pre-allocate results stack to avoid mid-evaluation allocations.
-        // Capacity is small because depth is strictly bounded at construction.
-        let mut results: Vec<bool> = Vec::with_capacity(16);
+        // Fixed-size stacks with proven O(depth) bounds.
+        let mut stack: FixedStack<StackItem<'a, '_>, TRAVERSAL_STACK_SIZE> = FixedStack::new();
+        let mut results: FixedStack<bool, VALUE_STACK_SIZE> = FixedStack::new();
+
+        stack.push(StackItem::Eval(self))?;
 
         while let Some(item) = stack.pop() {
             match item {
                 StackItem::Eval(cond) => match cond {
-                    Condition::True => results.push(true),
-                    Condition::False => results.push(false),
+                    Condition::True => results.push(true)?,
+                    Condition::False => results.push(false)?,
                     Condition::Equals { attr, value } => {
                         let result = lookup_attr(context, attr)
                             .map(|v| v == value)
                             .unwrap_or(false); // Missing attr = false (fail-closed)
-                        results.push(result);
+                        results.push(result)?;
                     }
                     Condition::NotEquals { attr, value } => {
                         let result = lookup_attr(context, attr)
                             .map(|v| v != value)
                             .unwrap_or(true); // Missing attr = true for NotEquals
-                        results.push(result);
+                        results.push(result)?;
                     }
                     Condition::Not(inner) => {
-                        stack.push(StackItem::ApplyNot);
-                        stack.push(StackItem::Eval(inner));
+                        stack.push(StackItem::ApplyNot)?;
+                        stack.push(StackItem::Eval(inner))?;
                     }
                     Condition::And(a, b) => {
-                        stack.push(StackItem::ApplyAnd);
-                        stack.push(StackItem::Eval(b));
-                        stack.push(StackItem::Eval(a));
+                        stack.push(StackItem::ApplyAnd)?;
+                        stack.push(StackItem::Eval(b))?;
+                        stack.push(StackItem::Eval(a))?;
                     }
                     Condition::Or(a, b) => {
-                        stack.push(StackItem::ApplyOr);
-                        stack.push(StackItem::Eval(b));
-                        stack.push(StackItem::Eval(a));
+                        stack.push(StackItem::ApplyOr)?;
+                        stack.push(StackItem::Eval(b))?;
+                        stack.push(StackItem::Eval(a))?;
                     }
                 },
                 StackItem::ApplyNot => {
                     let val = results.pop().ok_or(PolicyError::InternalError)?;
-                    results.push(!val);
+                    results.push(!val)?;
                 }
                 StackItem::ApplyAnd => {
                     let b = results.pop().ok_or(PolicyError::InternalError)?;
                     let a = results.pop().ok_or(PolicyError::InternalError)?;
-                    results.push(a && b);
+                    results.push(a && b)?;
                 }
                 StackItem::ApplyOr => {
                     let b = results.pop().ok_or(PolicyError::InternalError)?;
                     let a = results.pop().ok_or(PolicyError::InternalError)?;
-                    results.push(a || b);
+                    results.push(a || b)?;
                 }
             }
         }

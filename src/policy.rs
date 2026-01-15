@@ -95,7 +95,20 @@ impl<'a> Policy<'a> {
     }
 
     /// Create a policy with the given rules and config.
+    ///
+    /// Returns an error if:
+    /// - `config.max_condition_depth > ABSOLUTE_MAX_CONDITION_DEPTH` (hard cap for zero-allocation evaluation)
+    /// - Rule count exceeds `config.max_rules`
+    /// - Any rule violates matcher/string/depth limits
     pub fn with_config(rules: Vec<Rule<'a>>, config: PolicyConfig) -> Result<Self, PolicyError> {
+        // Enforce hard cap for zero-allocation evaluation
+        if config.max_condition_depth > crate::condition::ABSOLUTE_MAX_CONDITION_DEPTH {
+            return Err(PolicyError::ConditionTooDeep {
+                max: crate::condition::ABSOLUTE_MAX_CONDITION_DEPTH,
+                actual: config.max_condition_depth,
+            });
+        }
+
         // Validate rule count
         if rules.len() > config.max_rules {
             return Err(PolicyError::TooManyRules {
