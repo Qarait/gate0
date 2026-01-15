@@ -59,6 +59,7 @@ Gate0 maintains several core invariants to remain defensible:
 - **No Recursion**: Both validation and evaluation are implemented using manual stacks.
 - **Panic-Free**: All operations return `Result`.
 - **Pre-allocation**: Evaluation stacks are pre-allocated based on known depth bounds.
+- **Safe Destruction**: Manual, stack-based `Drop` implementation for `Condition` prevents overflows during cleanup.
 - All operations are fallible and return explicit errors
 
 ### Bounds Enforcement

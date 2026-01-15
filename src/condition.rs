@@ -70,12 +70,12 @@ impl<'a> Condition<'a> {
                 },
                 DepthItem::Computed(count) => {
                     if count == 1 {
-                        let d = results.pop().unwrap_or(0);
-                        results.push(1 + d);
+                        let d: usize = results.pop().unwrap_or(0);
+                        results.push(d.saturating_add(1));
                     } else {
-                        let d2 = results.pop().unwrap_or(0);
-                        let d1 = results.pop().unwrap_or(0);
-                        results.push(1 + d1.max(d2));
+                        let d2: usize = results.pop().unwrap_or(0);
+                        let d1: usize = results.pop().unwrap_or(0);
+                        results.push((d1.max(d2)).saturating_add(1));
                     }
                 }
             }
@@ -195,6 +195,38 @@ impl<'a> Condition<'a> {
 
         // Final result should be the only item on the stack
         results.pop().ok_or(PolicyError::InternalError)
+    }
+}
+
+/// Manual Drop implementation to prevent stack overflows on deep trees.
+impl<'a> Drop for Condition<'a> {
+    fn drop(&mut self) {
+        // Collect boxes into a stack to drop them iteratively
+        let mut stack = Vec::new();
+
+        match self {
+            Condition::And(a, b) | Condition::Or(a, b) => {
+                stack.push(std::mem::replace(a, Box::new(Condition::True)));
+                stack.push(std::mem::replace(b, Box::new(Condition::True)));
+            }
+            Condition::Not(inner) => {
+                stack.push(std::mem::replace(inner, Box::new(Condition::True)));
+            }
+            _ => return,
+        }
+
+        while let Some(mut boxed_cond) = stack.pop() {
+            match *boxed_cond {
+                Condition::And(ref mut a, ref mut b) | Condition::Or(ref mut a, ref mut b) => {
+                    stack.push(std::mem::replace(a, Box::new(Condition::True)));
+                    stack.push(std::mem::replace(b, Box::new(Condition::True)));
+                }
+                Condition::Not(ref mut inner) => {
+                    stack.push(std::mem::replace(inner, Box::new(Condition::True)));
+                }
+                _ => {}
+            }
+        }
     }
 }
 
