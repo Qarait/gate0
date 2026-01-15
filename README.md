@@ -65,6 +65,21 @@ let decision = policy.evaluate(&Request::new("alice", "read", "doc"))?;
 assert!(decision.is_allow());
 ```
 
+## Examples
+
+The `examples/` directory contains illustrative scenarios demonstrating common Gate0 usage patterns:
+
+- **SaaS API**: Standard RBAC/Multi-tenancy logic.
+- **Zero Trust Network**: Attribute-Based Access Control (ABAC) with MFA and location checks.
+- **Complex Overrides**: Demonstrating Deny-Overrides conflict resolution.
+
+Run them with:
+```bash
+cargo run --example saas_api
+cargo run --example zero_trust_network
+cargo run --example complex_overrides
+```
+
 ## License
 
 MIT
