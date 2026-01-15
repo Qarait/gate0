@@ -1,0 +1,20 @@
+[package]
+name = "authz-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["AuthZ Core Contributors"]
+description = "A small, auditable, terminating, deterministic micro-policy engine"
+license = "MIT"
+readme = "README.md"
+keywords = ["authorization", "policy", "security", "rbac", "abac"]
+categories = ["authentication"]
+
+[dependencies]
+# Zero dependencies. Intentional.
+
+[dev-dependencies]
+# None.
+
+[lib]
+name = "authz_core"
+path = "src/lib.rs"
