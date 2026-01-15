@@ -1,8 +1,8 @@
 [package]
-name = "authz-core"
+name = "gate0"
 version = "0.1.0"
 edition = "2021"
-authors = ["AuthZ Core Contributors"]
+authors = ["Gate0 Contributors"]
 description = "A small, auditable, terminating, deterministic micro-policy engine"
 license = "MIT"
 readme = "README.md"
@@ -16,5 +16,5 @@ categories = ["authentication"]
 # None.
 
 [lib]
-name = "authz_core"
+name = "gate0"
 path = "src/lib.rs"

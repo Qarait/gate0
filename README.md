@@ -1,4 +1,4 @@
-# authz-core
+# gate0
 
 A small, auditable, terminating, deterministic micro-policy engine.
 
@@ -19,7 +19,7 @@ A small, auditable, terminating, deterministic micro-policy engine.
 ## Example
 
 ```rust
-use authz_core::{Policy, Rule, Target, Request, ReasonCode};
+use gate0::{Policy, Rule, Target, Request, ReasonCode};
 
 let policy = Policy::builder()
     .rule(Rule::allow(Target::any(), ReasonCode(1)))

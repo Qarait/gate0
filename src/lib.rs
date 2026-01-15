@@ -1,4 +1,4 @@
-//! # AuthZ Core
+//! # Gate0
 //!
 //! A small, auditable, terminating, deterministic micro-policy engine.
 //!
@@ -18,7 +18,7 @@
 //! ## Example
 //!
 //! ```
-//! use authz_core::{Policy, Rule, Target, Matcher, Effect, Request, ReasonCode};
+//! use gate0::{Policy, Rule, Target, Matcher, Effect, Request, ReasonCode};
 //!
 //! // Define reason codes
 //! const BLOCKED_USER: ReasonCode = ReasonCode(1);
