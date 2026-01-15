@@ -5,7 +5,7 @@
 //! 2. Users can read/list resources within their tenant.
 //! 3. Cross-tenant access is denied by default.
 
-use gate0::{Policy, Rule, Target, Matcher, Request, ReasonCode, Value, Condition, Effect};
+use gate0::{Condition, Effect, Matcher, Policy, ReasonCode, Request, Rule, Target, Value};
 
 // Application-specific reason codes
 const ADMIN_ACCESS: ReasonCode = ReasonCode(100);

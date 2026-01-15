@@ -48,7 +48,7 @@ impl<'a> Matcher<'a> {
         match self {
             Matcher::Any => true,
             Matcher::Exact(expected) => value == *expected,
-            Matcher::OneOf(options) => options.iter().any(|opt| *opt == value),
+            Matcher::OneOf(options) => options.contains(&value),
         }
     }
 
@@ -165,12 +165,15 @@ mod tests {
     fn test_matcher_too_many_options() {
         let options = vec!["a", "b", "c"];
         let m = Matcher::OneOf(&options);
-        
+
         // Ok if within limit
         assert!(m.validate(3, 256).is_ok());
-        
+
         // Err if over limit
         let err = m.validate(2, 256).unwrap_err();
-        assert!(matches!(err, PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }));
+        assert!(matches!(
+            err,
+            PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }
+        ));
     }
 }

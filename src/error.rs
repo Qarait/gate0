@@ -135,7 +135,10 @@ mod tests {
 
     #[test]
     fn test_condition_too_deep_display() {
-        let err = PolicyError::ConditionTooDeep { max: 10, actual: 15 };
+        let err = PolicyError::ConditionTooDeep {
+            max: 10,
+            actual: 15,
+        };
         assert_eq!(
             err.to_string(),
             "condition exceeds maximum depth of 10, got 15"
@@ -156,7 +159,10 @@ mod tests {
 
     #[test]
     fn test_context_too_large_display() {
-        let err = PolicyError::ContextTooLarge { max: 64, actual: 100 };
+        let err = PolicyError::ContextTooLarge {
+            max: 64,
+            actual: 100,
+        };
         assert_eq!(
             err.to_string(),
             "context exceeds maximum attribute count of 64, got 100"

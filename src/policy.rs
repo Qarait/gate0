@@ -107,10 +107,16 @@ impl<'a> Policy<'a> {
         // Validate rules and condition depths
         for rule in &rules {
             // Validate matcher options and string lengths
-            rule.target.principal.validate(config.max_matcher_options, config.max_string_len)?;
-            rule.target.action.validate(config.max_matcher_options, config.max_string_len)?;
-            rule.target.resource.validate(config.max_matcher_options, config.max_string_len)?;
-            
+            rule.target
+                .principal
+                .validate(config.max_matcher_options, config.max_string_len)?;
+            rule.target
+                .action
+                .validate(config.max_matcher_options, config.max_string_len)?;
+            rule.target
+                .resource
+                .validate(config.max_matcher_options, config.max_string_len)?;
+
             // Validate condition depth and string lengths
             if let Some(cond) = &rule.condition {
                 cond.validate(config.max_condition_depth, config.max_string_len)?;
@@ -167,7 +173,10 @@ impl<'a> Policy<'a> {
         // Evaluate rules in order
         for rule in &self.rules {
             // Check if target matches
-            if !rule.target.matches(request.principal, request.action, request.resource) {
+            if !rule
+                .target
+                .matches(request.principal, request.action, request.resource)
+            {
                 continue;
             }
 
@@ -414,19 +423,22 @@ mod tests {
             max_matcher_options: 2,
             ..PolicyConfig::default()
         };
-        
+
         let target = Target {
             principal: Matcher::OneOf(&["a", "b", "c"]),
             action: Matcher::Any,
             resource: Matcher::Any,
         };
-        
+
         let rule = Rule::allow(target, ReasonCode(1));
         let result = Policy::with_config(vec![rule], config);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }));
+        assert!(matches!(
+            err,
+            PolicyError::TooManyMatcherOptions { max: 2, actual: 3 }
+        ));
     }
 
     #[test]
@@ -435,19 +447,22 @@ mod tests {
             max_string_len: 5,
             ..PolicyConfig::default()
         };
-        
+
         let target = Target {
             principal: Matcher::Exact("too-long-string"),
             action: Matcher::Any,
             resource: Matcher::Any,
         };
-        
+
         let rule = Rule::allow(target, ReasonCode(1));
         let result = Policy::with_config(vec![rule], config);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, PolicyError::StringTooLong { max: 5, actual: 15 }));
+        assert!(matches!(
+            err,
+            PolicyError::StringTooLong { max: 5, actual: 15 }
+        ));
     }
 
     #[test]
@@ -456,18 +471,21 @@ mod tests {
             max_string_len: 5,
             ..PolicyConfig::default()
         };
-        
+
         let cond = Condition::Equals {
             attr: "role",
             value: Value::String("administrator"),
         };
-        
+
         let rule = Rule::new(Effect::Allow, Target::any(), Some(cond), ReasonCode(1));
         let result = Policy::with_config(vec![rule], config);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(matches!(err, PolicyError::StringTooLong { max: 5, actual: 13 }));
+        assert!(matches!(
+            err,
+            PolicyError::StringTooLong { max: 5, actual: 13 }
+        ));
     }
 
     #[test]
@@ -499,11 +517,8 @@ mod tests {
             ..Default::default()
         };
 
-        let policy = Policy::with_config(
-            vec![Rule::allow(Target::any(), ReasonCode(1))],
-            config,
-        )
-        .unwrap();
+        let policy =
+            Policy::with_config(vec![Rule::allow(Target::any(), ReasonCode(1))], config).unwrap();
 
         let ctx: &[(&str, Value)] = &[
             ("a", Value::Int(1)),
@@ -586,24 +601,37 @@ mod tests {
             max_string_len: 10,
             ..PolicyConfig::default()
         };
-        let policy = Policy::with_config(vec![Rule::allow(Target::any(), ReasonCode(1))], config).unwrap();
+        let policy =
+            Policy::with_config(vec![Rule::allow(Target::any(), ReasonCode(1))], config).unwrap();
 
         // 1. Principal too long
         let req = Request::new("this-is-a-very-long-principal", "read", "doc");
-        assert!(matches!(policy.evaluate(&req), Err(PolicyError::StringTooLong { max: 10, .. })));
+        assert!(matches!(
+            policy.evaluate(&req),
+            Err(PolicyError::StringTooLong { max: 10, .. })
+        ));
 
         // 2. Action too long
         let req = Request::new("alice", "very-long-action-name", "doc");
-        assert!(matches!(policy.evaluate(&req), Err(PolicyError::StringTooLong { max: 10, .. })));
+        assert!(matches!(
+            policy.evaluate(&req),
+            Err(PolicyError::StringTooLong { max: 10, .. })
+        ));
 
         // 3. Context key too long
         let ctx: &[(&str, Value)] = &[("this-is-a-very-long-key", Value::Int(1))];
         let req = Request::with_context("alice", "read", "doc", ctx);
-        assert!(matches!(policy.evaluate(&req), Err(PolicyError::StringTooLong { max: 10, .. })));
+        assert!(matches!(
+            policy.evaluate(&req),
+            Err(PolicyError::StringTooLong { max: 10, .. })
+        ));
 
         // 4. Context value too long
         let ctx: &[(&str, Value)] = &[("role", Value::String("administrator"))];
         let req = Request::with_context("alice", "read", "doc", ctx);
-        assert!(matches!(policy.evaluate(&req), Err(PolicyError::StringTooLong { max: 10, .. })));
+        assert!(matches!(
+            policy.evaluate(&req),
+            Err(PolicyError::StringTooLong { max: 10, .. })
+        ));
     }
 }

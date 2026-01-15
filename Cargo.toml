@@ -8,6 +8,8 @@ license = "MIT"
 readme = "README.md"
 keywords = ["authorization", "policy", "security", "rbac", "abac"]
 categories = ["authentication"]
+repository = "https://github.com/Qarait/gate0"
+homepage = "https://github.com/Qarait/gate0"
 
 [dependencies]
 # Zero dependencies. Intentional.

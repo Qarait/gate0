@@ -184,12 +184,9 @@ mod tests {
 
     #[test]
     fn test_request_with_context() {
-        let ctx: &[(&str, Value)] = &[
-            ("role", Value::String("admin")),
-            ("level", Value::Int(5)),
-        ];
+        let ctx: &[(&str, Value)] = &[("role", Value::String("admin")), ("level", Value::Int(5))];
         let req = Request::with_context("bob", "write", "config.yaml", ctx);
-        
+
         assert_eq!(req.get_attr("role"), Some(&Value::String("admin")));
         assert_eq!(req.get_attr("level"), Some(&Value::Int(5)));
         assert_eq!(req.get_attr("missing"), None);

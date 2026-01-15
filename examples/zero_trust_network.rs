@@ -5,7 +5,7 @@
 //! 2. Access is restricted based on IP ranges (simulated via context).
 //! 3. High-security resources require an additional 'secure_device' flag.
 
-use gate0::{Policy, Rule, Target, Matcher, Request, ReasonCode, Value, Condition, Effect};
+use gate0::{Condition, Effect, Matcher, Policy, ReasonCode, Request, Rule, Target, Value};
 
 const ACCESS_GRANTED: ReasonCode = ReasonCode(200);
 const MFA_REQUIRED: ReasonCode = ReasonCode(401);
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }),
             MFA_REQUIRED,
         ))
-        // Location Rule: Deny if from an untrusted country 
+        // Location Rule: Deny if from an untrusted country
         .rule(Rule::new(
             Effect::Deny,
             Target::any(),
@@ -64,7 +64,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let req2 = Request::with_context("bob", "ssh_connect", "dev-server", bob_ctx);
     let dec2 = policy.evaluate(&req2)?;
-    println!("Bob (MFA=False, US) -> dev-server: {:?} (Reason: {:?})", dec2.effect, dec2.reason);
+    println!(
+        "Bob (MFA=False, US) -> dev-server: {:?} (Reason: {:?})",
+        dec2.effect, dec2.reason
+    );
     assert!(dec2.is_deny());
     assert_eq!(dec2.reason, MFA_REQUIRED);
 
@@ -75,7 +78,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let req3 = Request::with_context("charlie", "ssh_connect", "dev-server", charlie_ctx);
     let dec3 = policy.evaluate(&req3)?;
-    println!("Charlie (MFA=True, Untrusted) -> dev-server: {:?} (Reason: {:?})", dec3.effect, dec3.reason);
+    println!(
+        "Charlie (MFA=True, Untrusted) -> dev-server: {:?} (Reason: {:?})",
+        dec3.effect, dec3.reason
+    );
     assert!(dec3.is_deny());
     assert_eq!(dec3.reason, UNTRUSTED_LOCATION);
 

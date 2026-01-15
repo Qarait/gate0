@@ -55,7 +55,10 @@ impl<'a> Condition<'a> {
         while let Some(item) = stack.pop() {
             match item {
                 DepthItem::Visit(cond) => match cond {
-                    Condition::True | Condition::False | Condition::Equals { .. } | Condition::NotEquals { .. } => {
+                    Condition::True
+                    | Condition::False
+                    | Condition::Equals { .. }
+                    | Condition::NotEquals { .. } => {
                         results.push(1);
                     }
                     Condition::Not(inner) => {
@@ -312,33 +315,21 @@ mod tests {
 
     #[test]
     fn test_condition_and() {
-        let c = Condition::And(
-            Box::new(Condition::True),
-            Box::new(Condition::True),
-        );
+        let c = Condition::And(Box::new(Condition::True), Box::new(Condition::True));
         assert_eq!(c.depth(), 2);
         assert_eq!(c.evaluate(&[]), Ok(true));
 
-        let c = Condition::And(
-            Box::new(Condition::True),
-            Box::new(Condition::False),
-        );
+        let c = Condition::And(Box::new(Condition::True), Box::new(Condition::False));
         assert_eq!(c.evaluate(&[]), Ok(false));
     }
 
     #[test]
     fn test_condition_or() {
-        let c = Condition::Or(
-            Box::new(Condition::False),
-            Box::new(Condition::True),
-        );
+        let c = Condition::Or(Box::new(Condition::False), Box::new(Condition::True));
         assert_eq!(c.depth(), 2);
         assert_eq!(c.evaluate(&[]), Ok(true));
 
-        let c = Condition::Or(
-            Box::new(Condition::False),
-            Box::new(Condition::False),
-        );
+        let c = Condition::Or(Box::new(Condition::False), Box::new(Condition::False));
         assert_eq!(c.evaluate(&[]), Ok(false));
     }
 
@@ -357,10 +348,7 @@ mod tests {
 
     #[test]
     fn test_validate_depth_ok() {
-        let c = Condition::And(
-            Box::new(Condition::True),
-            Box::new(Condition::False),
-        );
+        let c = Condition::And(Box::new(Condition::True), Box::new(Condition::False));
         assert!(c.validate(10, 256).is_ok());
         assert!(c.validate(2, 256).is_ok());
     }
@@ -374,10 +362,7 @@ mod tests {
         // Depth is 3
         assert!(c.validate(2, 256).is_err());
         let err = c.validate(2, 256).unwrap_err();
-        assert_eq!(
-            err,
-            PolicyError::ConditionTooDeep { max: 2, actual: 3 }
-        );
+        assert_eq!(err, PolicyError::ConditionTooDeep { max: 2, actual: 3 });
     }
 
     #[test]

@@ -7,8 +7,8 @@
 //! exhaustion during local runs. See proptest.toml for configuration.
 
 use gate0::{
-    Condition, Effect, Matcher, Policy, PolicyConfig, PolicyError,
-    ReasonCode, Request, Rule, Target, Value, NO_MATCHING_RULE,
+    Condition, Effect, Matcher, Policy, PolicyConfig, PolicyError, ReasonCode, Request, Rule,
+    Target, Value, NO_MATCHING_RULE,
 };
 use proptest::prelude::*;
 
@@ -35,13 +35,9 @@ fn arb_identifier() -> impl Strategy<Value = String> {
 /// Depth is capped at 5 to prevent exponential explosion.
 fn arb_condition(max_depth: usize) -> impl Strategy<Value = Condition<'static>> {
     let effective_depth = max_depth.min(5); // Hard cap at 5
-    
+
     if effective_depth <= 1 {
-        prop_oneof![
-            Just(Condition::True),
-            Just(Condition::False),
-        ]
-        .boxed()
+        prop_oneof![Just(Condition::True), Just(Condition::False),].boxed()
     } else {
         prop_oneof![
             4 => Just(Condition::True),
@@ -114,11 +110,11 @@ proptest! {
         let policy = Policy::new(rules);
         if let Ok(policy) = policy {
             let request = Request::new(&principal, &action, &resource);
-            
+
             let decision1 = policy.evaluate(&request);
             let decision2 = policy.evaluate(&request);
             let decision3 = policy.evaluate(&request);
-            
+
             prop_assert_eq!(&decision1, &decision2);
             prop_assert_eq!(&decision2, &decision3);
         }
@@ -134,7 +130,7 @@ proptest! {
         let policy = Policy::new(vec![]).unwrap();
         let request = Request::new(&principal, &action, &resource);
         let decision = policy.evaluate(&request).unwrap();
-        
+
         prop_assert!(decision.is_deny());
         prop_assert_eq!(decision.reason, NO_MATCHING_RULE);
     }
@@ -156,7 +152,7 @@ proptest! {
         let policy = Policy::new(rules).unwrap();
         let request = Request::new(&principal, &action, &resource);
         let decision = policy.evaluate(&request).unwrap();
-        
+
         prop_assert!(decision.is_deny());
         prop_assert_eq!(decision.reason, deny_reason);
     }
@@ -191,16 +187,16 @@ proptest! {
             max_matcher_options: 64,
             max_string_len: 256,
         };
-        
+
         let rule = Rule::new(
             Effect::Allow,
             Target::any(),
             Some(deep_condition.clone()),
             ReasonCode(1),
         );
-        
+
         let result = Policy::with_config(vec![rule], config);
-        
+
         // If depth > 3, should fail; otherwise should succeed
         if deep_condition.depth() > 3 {
             prop_assert!(result.is_err(), "depth {} should fail", deep_condition.depth());
@@ -219,13 +215,13 @@ proptest! {
             max_matcher_options: 64,
             max_string_len: 256,
         };
-        
+
         let rules: Vec<Rule> = (0..rule_count)
             .map(|i| Rule::allow(Target::any(), ReasonCode(i as u32)))
             .collect();
-        
+
         let result = Policy::with_config(rules, config);
-        
+
         if rule_count > 30 {
             prop_assert!(result.is_err());
         } else {
@@ -291,7 +287,7 @@ fn test_max_context_size() {
         ("attr8", Value::Int(8)),
         ("attr9", Value::Int(9)),
     ];
-    
+
     let request = Request::with_context("alice", "read", "doc", &ctx);
     let result = policy.evaluate(&request);
     assert!(result.is_ok());
@@ -307,11 +303,9 @@ fn test_context_too_large() {
         max_matcher_options: 64,
         max_string_len: 256,
     };
-    
-    let policy = Policy::with_config(
-        vec![Rule::allow(Target::any(), ReasonCode(1))],
-        config
-    ).unwrap();
+
+    let policy =
+        Policy::with_config(vec![Rule::allow(Target::any(), ReasonCode(1))], config).unwrap();
 
     // Create context over the limit
     let ctx: Vec<(&str, Value)> = vec![
@@ -355,6 +349,9 @@ fn test_max_condition_depth() {
     let result = Policy::new(vec![rule]);
     assert!(matches!(
         result,
-        Err(PolicyError::ConditionTooDeep { max: 10, actual: 11 })
+        Err(PolicyError::ConditionTooDeep {
+            max: 10,
+            actual: 11
+        })
     ));
 }

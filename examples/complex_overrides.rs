@@ -5,7 +5,7 @@
 //! 2. A specific 'Deny' rule for a sensitive sub-resource.
 //! 3. Proving that specific Denies win regardless of order.
 
-use gate0::{Policy, Rule, Target, Matcher, Request, ReasonCode, Value, Condition, Effect};
+use gate0::{Condition, Effect, Matcher, Policy, ReasonCode, Request, Rule, Target, Value};
 
 const TEAM_READ: ReasonCode = ReasonCode(1);
 const SENSITIVE_DENY: ReasonCode = ReasonCode(99);
@@ -53,7 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Deny-Overrides ensures the result is Deny.
     let req_b = Request::with_context("alice", "read", "salaries.pdf", eng_ctx);
     let dec_b = policy.evaluate(&req_b)?;
-    println!("Alice (Eng) read salaries.pdf: {:?} (Reason: {:?})", dec_b.effect, dec_b.reason);
+    println!(
+        "Alice (Eng) read salaries.pdf: {:?} (Reason: {:?})",
+        dec_b.effect, dec_b.reason
+    );
     assert!(dec_b.is_deny());
     assert_eq!(dec_b.reason, SENSITIVE_DENY);
 
