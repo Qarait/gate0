@@ -1,7 +1,20 @@
-use gate0::{Matcher, Policy, ReasonCode, Request, Rule, Target};
-
+use gate0::{Matcher, Policy, PolicyConfig, ReasonCode, Request, Rule, Target};
 
 macro_rules! policy_builder {
+    [ use $builder:ident; config { $($key:ident: $value:expr),* $(,)? }; $($t1:tt $t2:tt $t3:tt $t4:tt $t5:tt;)+ ] => {
+        {
+            $builder = $builder.config(PolicyConfig {
+                $(
+                    $key: $value,
+                )*
+                ..PolicyConfig::default()
+            });
+            policy_builder![
+                use $builder;
+                $($t1 $t2 $t3 $t4 $t5;)+
+            ]
+        }
+    };
     [ use $builder:ident; $($t1:tt $t2:tt $t3:tt $t4:tt $t5:tt;)+ ] => {
         {
             $(
@@ -10,13 +23,23 @@ macro_rules! policy_builder {
             $builder
         }
     };
+    [ config { $($key:ident: $value:expr),* $(,)? }; $($t1:tt $t2:tt $t3:tt $t4:tt $t5:tt;)+ ] => {
+        {
+            let mut builder = Policy::builder();
+            policy_builder![
+                use builder;
+                config { $($key: $value),* };
+                $($t1 $t2 $t3 $t4 $t5;)+
+            ]
+        }
+    };
     [ $($t1:tt $t2:tt $t3:tt $t4:tt $t5:tt;)+ ] => {
         {
             let mut builder = Policy::builder();
-            $(
-                builder = builder.rule( rule!($t1 $t2 $t3 $t4 $t5) );
-            )+
-            builder
+            policy_builder![
+                use builder;
+                $($t1 $t2 $t3 $t4 $t5;)+
+            ]
         }
     };
 }
@@ -28,15 +51,18 @@ macro_rules! rule {
 }
 
 macro_rules! rule_inner {
+    ($effect:ident, * => reason $rc:tt) => {
+        Rule::$effect(Target::any(), reason_code!($rc))
+    };
     ($effect:ident, any => reason $rc:tt) => {
         Rule::$effect(Target::any(), reason_code!($rc))
     };
     ($effect:ident, ($p:tt $a:tt $r:tt) => reason $rc:literal) => {
         Rule::$effect(
             Target {
-                principal: principal!(principal: $p,),
-                action: action!(action: $a,),
-                resource: resource!(resource: $r,),
+                principal: field_matcher!(principal, principal: $p,),
+                action:field_matcher!(action, action: $a,),
+                resource: field_matcher!(resource, resource: $r,),
             },
             reason_code!($rc),
         )
@@ -44,9 +70,9 @@ macro_rules! rule_inner {
     ($effect:ident, {$($a:tt: $b:tt)*} => reason $rc:literal) => {
         Rule::$effect(
             Target {
-                principal: principal!($($a: $b,)*),
-                action: action!($($a: $b,)*),
-                resource: resource!($($a: $b,)*),
+                principal: field_matcher!(principal, $($a: $b,)*),
+                action: field_matcher!(action, $($a: $b,)*),
+                resource: field_matcher!(resource, $($a: $b,)*),
             },
             reason_code!($rc),
         )
@@ -62,91 +88,51 @@ macro_rules! reason_code {
     };
 }
 
-macro_rules! principal {
-    (principal: any, $($a2:tt: $b2:tt,)*) => {
-        Matcher::Any
+macro_rules! field_matcher {
+    (@find $wanted:ident, $wanted2:ident : [ $($vals:literal),* $(,)? ], $($rest:tt)*) => {
+        Matcher::OneOf(&[ $($vals),* ])
     };
-    (principal: $principal:literal, $($a2:tt: $b2:tt,)*) => {
-        Matcher::Exact($principal)
-    };
-    (principal: [$($principal:literal),*], $($a2:tt: $b2:tt,)*) => {
-        Matcher::OneOf(&[$($principal),*])
-    };
-    ($a1:tt: $b1:tt, $($a2:tt: $b2:tt,)+) => {
-        principal!( $($a2: $b2,)+ )
-    };
-    ($a1:tt: $b1:tt,) => {
-        Matcher::Any
-    };
-}
 
-macro_rules! action {
-    (action: any, $($a2:tt: $b2:tt,)*) => {
+    (@find $wanted:ident, $wanted2:ident : *, $($rest:tt)*) => {
         Matcher::Any
     };
-    (action: $action:literal, $($a2:tt: $b2:tt,)*) => {
-        Matcher::Exact($action)
-    };
-    (action: [$($action:literal),*], $($a2:tt: $b2:tt,)*) => {
-        Matcher::OneOf(&[$($action ),*])
-    };
-    ($a1:tt: $b1:tt, $($a2:tt: $b2:tt,)+) => {
-        action!( $($a2: $b2,)+ )
-    };
-    ($a1:tt: $b1:tt,) => {
-        Matcher::Any
-    };
-}
 
-macro_rules! resource {
-    (resource: any, $($a2:tt: $b2:tt,)*) => {
+    (@find $wanted:ident, $wanted2:ident : any, $($rest:tt)*) => {
         Matcher::Any
     };
-    (resource: $resource:literal, $($a2:tt: $b2:tt,)*) => {
-        Matcher::Exact($resource)
+
+    (@find $wanted:ident, $wanted2:ident : $val:literal, $($rest:tt)*) => {
+        Matcher::Exact($val)
     };
-    (resource: [$($resource:literal),*], $($a2:tt: $b2:tt,)*) => {
-        Matcher::OneOf(&[$($resource ),*])
+
+    (@find $wanted:ident, $other:ident : $val:tt, $($rest:tt)*) => {
+        field_matcher!(@find $wanted, $($rest)*)
     };
-    ($a1:tt: $b1:tt, $($a2:tt: $b2:tt,)+) => {
-        resource!( $($a2: $b2,)+ )
-    };
-    ($a1:tt: $b1:tt,) => {
+
+    (@find $wanted:ident,) => {
         Matcher::Any
+    };
+
+    ($wanted:ident, $($pairs:tt)*) => {
+        field_matcher!(@find $wanted, $($pairs)*)
     };
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let policy = policy_builder![
+        config {
+            max_rules: 1000,
+            max_condition_depth: 10,
+            max_context_attrs: 64,
+            max_matcher_options: 64,
+            max_string_len: 256,
+        };
         allow any => reason 1;
         allow ("alice" ["read"] any) => reason 2;
-        deny
-            {
-                principal: ["bob", "eve"]
-                action: ["delete", "update"]
-                resource: any
-            } => reason 3;
-    ].build()?;
-
-    // let mut builder = Policy::builder();
-    // let policy = policy_builder![
-    //     use builder;
-
-    //     allow any => reason 1;
-    //     allow
-    //         {
-    //             principal: "alice",
-    //             action: "read",
-    //             resource: "doc"
-    //         } => reason 2;
-    //     deny
-    //         {
-    //             principal: ["bob", "eve"],
-    //             action: ["delete", "update"],
-    //             resource: any
-    //         } => reason 3;
-    // ].build()?;
-
+        allow ("alice" [*, *, *, "test"] *) => reason 3;
+        deny { principal: ["bob", "eve"] action: ["delete", "update"] resource: any } => reason 4;
+    ]
+    .build()?;
     println!("Policy: {:#?}", policy);
 
     let decision = policy.evaluate(&Request::new("alice", "read", "doc"))?;
