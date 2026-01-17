@@ -10,36 +10,36 @@ Gate0 is a micro-policy engine. This document defines what it defends against, w
 
 | Threat | Defense |
 |--------|---------|
-| **Logic bugs in authorization** | Explicit deny-overrides semantics, ordered evaluation, no implicit defaults |
-| **Ambiguous rule evaluation** | Deterministic rule ordering, first-match-wins within effect class |
-| **DoS via unbounded input** | Hard limits on rules, condition depth, and context size |
-| **Silent failure modes** | All operations return `Result`, no panics in core logic |
-| **Inconsistent decisions** | Same input always produces same output, no randomness |
+| Logic bugs in authorization | Explicit deny-overrides semantics, ordered evaluation, no implicit defaults |
+| Ambiguous rule evaluation | Deterministic rule ordering, first-match-wins within effect class |
+| DoS via unbounded input | Hard limits on rules, condition depth, and context size |
+| Silent failure modes | All operations return `Result`, no panics in core logic |
+| Inconsistent decisions | Same input always produces same output, no randomness |
 
 ### What Gate0 Does NOT Defend Against
 
 | Non-Goal | Rationale |
 |----------|-----------|
-| **Malicious policy author** | Caller is trusted to construct valid policies. Gate0 enforces bounds, not intent. |
-| **Side-channel attacks** | No countermeasures for timing, cache, or power analysis. |
-| **Timing attacks** | Evaluation time varies with input. Not constant-time. |
-| **Compromised host** | If the runtime is compromised, all bets are off. |
-| **Incorrect upstream identity** | Gate0 trusts the `principal` field as provided. Identity verification is out of scope. |
-| **Policy correctness** | Gate0 evaluates policies as written. It cannot detect semantic errors in policy logic. |
+| Malicious policy author | Caller is trusted to construct valid policies. Gate0 enforces bounds, not intent. |
+| Side-channel attacks | No countermeasures for timing, cache, or power analysis. |
+| Timing attacks | Evaluation time varies with input. Not constant-time. |
+| Compromised host | If the runtime is compromised, all bets are off. |
+| Incorrect upstream identity | Gate0 trusts the `principal` field as provided. Identity verification is out of scope. |
+| Policy correctness | Gate0 evaluates policies as written. It cannot detect semantic errors in policy logic. |
 
 ### Assumed Attacker Capabilities
 
 | Capability | Assumed |
 |------------|---------|
-| Full control over request input | ✓ Yes |
-| Ability to craft worst-case conditions | ✓ Yes |
-| Ability to trigger repeated evaluations | ✓ Yes |
-| Control over policy construction | ✗ No |
-| Access to host memory or process | ✗ No |
+| Full control over request input | Yes |
+| Ability to craft worst-case conditions | Yes |
+| Ability to trigger repeated evaluations | Yes |
+| Control over policy construction | No |
+| Access to host memory or process | No |
 
 ---
 
-#### Security Architecture
+## Security Architecture
 
 Gate0 implements a three-stage defense pipeline to ensure that hostile input is caught before it can cause CPU or memory exhaustion.
 
@@ -73,43 +73,42 @@ flowchart LR
     DECISION --> Cleanup
 ```
 
-### Invariants
+## Invariants
 
-Gate0 maintains several core invariants to remain defensible:
+Gate0 maintains several core invariants to remain defensible.
 
-1.  **Termination**: All evaluation logic is non-recursive and stack-based. Depth is checked at construction.
-2.  **Determinism**: Policy results are stable across identical requests and restarts.
-3.  **Memory Safety**: Zero use of `unsafe` in core library; zero leaks in evaluation paths.
-4.  **Resource Bounds**:
-    *   **Rule Count**: Maximum rules per policy ($R$)
-    *   **Condition Depth**: Maximum nesting in conditions ($D$)
-    *   **Context Size**: Maximum attributes in request context ($C$)
-    *   **Matcher Options**: Maximum items in `OneOf` lists ($M$)
-    *   **String Length**: Maximum length of any identifier or value ($L$)
-5.  **Fail-Closed**: By default, any unmatched request or evaluation error returns `Deny`.
+**Termination.** All evaluation logic is non-recursive and stack-based. Depth is checked at construction.
 
-### Mechanical Proofs
+**Determinism.** Policy results are stable across identical requests and restarts.
 
-- **No Recursion**: Both validation and evaluation are implemented using manual stacks.
-- **Panic-Free**: All operations return `Result`.
-- **Safe Destruction**: Manual, stack-based `Drop` implementation for `Condition` prevents overflows during cleanup.
-- **Zero Heap Allocations at Request-Time**: `Policy::evaluate` and `Condition::evaluate` use fixed-size, stack-allocated buffers (`FixedStack` with `MaybeUninit`).
+**Memory Safety.** Zero use of `unsafe` in core library paths except for the `FixedStack` module, which is MIRI-verified. Zero leaks in evaluation paths.
 
-### Zero-Allocation Guarantee
+**Resource Bounds.** Maximum rules per policy, maximum nesting in conditions, maximum attributes in request context, maximum items in OneOf lists, and maximum length of any identifier or value are all enforced at construction or evaluation time.
 
-The evaluation hot-path performs **zero heap allocations**. Stack sizes are derived from the hard depth cap:
+**Fail-Closed.** By default, any unmatched request or evaluation error returns Deny.
+
+## Mechanical Proofs
+
+**No Recursion.** Both validation and evaluation are implemented using manual stacks.
+
+**Panic-Free.** All operations return `Result`. No unwrap, expect, or panic macros in core paths.
+
+**Safe Destruction.** Manual, stack-based Drop implementation for Condition prevents overflows during cleanup.
+
+**Zero Heap Allocations at Request-Time.** Policy::evaluate and Condition::evaluate use fixed-size, stack-allocated buffers via FixedStack with MaybeUninit.
+
+## Zero-Allocation Guarantee
+
+The evaluation hot-path performs zero heap allocations. Stack sizes are derived from the hard depth cap.
 
 | Stack | Size Formula | Value (D=16) | Proof |
 |-------|-------------|--------------|-------|
-| Traversal | `2*D + 2` | 34 items | Each And/Or pushes 1 op + 2 evals; worst case is left-leaning chain |
-| Results | `D + 2` | 18 items | Operators consume children before parent completes |
+| Traversal | 2D + 2 | 34 items | Each And/Or pushes 1 op + 2 evals; worst case is left-leaning chain |
+| Results | D + 2 | 18 items | Operators consume children before parent completes |
 
-- **Hard Cap**: `ABSOLUTE_MAX_CONDITION_DEPTH = 16`. Configs exceeding this are rejected.
-- **Verification**: `tests/allocations.rs` asserts 0 allocations across 1000 iterations per test.
-- **MIRI**: All `FixedStack` and evaluator tests pass under MIRI (no UB).
+The hard cap is ABSOLUTE_MAX_CONDITION_DEPTH = 16. Configs exceeding this are rejected. Verification is performed in tests/allocations.rs which asserts zero allocations across 1000 iterations per test. All FixedStack and evaluator tests pass under MIRI with no undefined behavior.
 
-
-### Bounds Enforcement
+## Bounds Enforcement
 
 | Bound | Default | Enforced At |
 |-------|---------|-------------|
@@ -117,11 +116,9 @@ The evaluation hot-path performs **zero heap allocations**. Stack sizes are deri
 | Max condition depth | 10 | Policy construction |
 | Max context attributes | 64 | Evaluation time |
 
-### Conflict Resolution
+## Conflict Resolution
 
-- Deny always overrides Allow (deny-overrides semantics)
-- Within same effect class, first matching rule's reason is returned
-- No matching rules = Deny with reason `NO_MATCHING_RULE`
+Deny always overrides Allow via deny-overrides semantics. Within the same effect class, first matching rule's reason is returned. No matching rules results in Deny with reason NO_MATCHING_RULE.
 
 ---
 
@@ -129,14 +126,11 @@ The evaluation hot-path performs **zero heap allocations**. Stack sizes are deri
 
 ### Automated Testing
 
-- **Unit tests**: Every module has isolated tests for individual functions
-- **Integration tests**: Realistic policy scenarios in `lib.rs`
-- **Property-based tests**: Random input generation via `proptest`
-- **Worst-case tests**: Maximum bounds exercised in test suite
+Unit tests cover every module with isolated tests for individual functions. Integration tests exercise realistic policy scenarios in lib.rs. Property-based tests generate random inputs via proptest. Worst-case tests exercise maximum bounds in the test suite.
 
 ### Property-Based Testing Bounds
 
-Property-based testing is intentionally bounded to prevent resource exhaustion during local runs:
+Property-based testing is intentionally bounded to prevent resource exhaustion during local runs.
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
@@ -145,47 +139,28 @@ Property-based testing is intentionally bounded to prevent resource exhaustion d
 | Max rules per test | 20 | Exercises policy limits without allocation storms |
 | Timeout per case | 10s | Generous for any single evaluation |
 
-These bounds prove adversarial intent, not exhaustiveness. CI runs can increase
-`PROPTEST_CASES` for deeper coverage on machines with more resources.
+These bounds prove adversarial intent, not exhaustiveness. CI runs can increase PROPTEST_CASES for deeper coverage on machines with more resources.
 
 ### Panic-Free Verification
 
-Core logic is searched for:
-- `.unwrap()` — none
-- `.expect()` — none  
-- `panic!` — none
+Core logic is searched for unwrap, expect, and panic. None are present in evaluation paths.
 
 ### Undefined Behavior Check
 
-MIRI validates the library crate for undefined behavior:
+MIRI validates the library crate for undefined behavior.
 
 ```bash
 cargo +nightly miri test --lib
 ```
 
-Validates:
-- No undefined behavior
-- No invalid memory access
-- Lifetime soundness
-- No use-after-free or double-free
-
-> **Note**: Property tests (`--test properties`) cannot run under MIRI due to 
-> proptest's filesystem requirements for regression persistence. This is a 
-> proptest limitation, not a Gate0 limitation. The library tests provide full 
-> coverage of core logic.
+This validates no undefined behavior, no invalid memory access, lifetime soundness, and no use-after-free or double-free. Property tests cannot run under MIRI due to proptest's filesystem requirements for regression persistence. This is a proptest limitation. The library tests provide full coverage of core logic.
 
 ---
 
 ## Out of Scope
 
-The following are explicitly not part of Gate0's security model:
+The following are explicitly not part of Gate0's security model: cryptographic operations, network communication, persistence or caching, audit logging (caller responsibility), and policy serialization/deserialization.
 
-- Cryptographic operations
-- Network communication
-- Persistence or caching
-- Audit logging (caller responsibility)
-- Policy serialization/deserialization
-
-Gate0 is a pure function: `(Policy, Request) → Result<Decision, Error>`
+Gate0 is a pure function: (Policy, Request) → Result<Decision, Error>
 
 Everything else is the caller's responsibility.
