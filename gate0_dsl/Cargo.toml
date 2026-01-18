@@ -1,0 +1,21 @@
+[package]
+name = "gate0_dsl"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Qarait/gate0"
+homepage = "https://github.com/Qarait/gate0"
+
+[lib]
+name = "gate0_dsl"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+syn = "2"
+quote = "1"
+proc-macro-error = "1"
+
+[dev-dependencies]
+gate0 = { version = "0.2.0", path = ".." }

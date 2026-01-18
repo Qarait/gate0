@@ -12,11 +12,13 @@ repository = "https://github.com/Qarait/gate0"
 homepage = "https://github.com/Qarait/gate0"
 
 [dependencies]
-# Zero dependencies. Intentional.
+gate0_dsl = { version = "0.1.0", path = "gate0_dsl", optional = true }
+# Zero external dependencies. Intentional.
 
 [features]
 default = []
 safe-stack = []  # Use SafeFixedStack (no unsafe, O(capacity) init)
+dsl = ["dep:gate0_dsl"]
 
 [dev-dependencies]
 proptest = "1.6"
@@ -24,3 +26,8 @@ proptest = "1.6"
 [lib]
 name = "gate0"
 path = "src/lib.rs"
+
+[workspace]
+members = [
+    "gate0_dsl",
+]

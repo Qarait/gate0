@@ -72,6 +72,24 @@ impl<'a> Value<'a> {
     }
 }
 
+impl<'a> From<&'a str> for Value<'a> {
+    fn from(s: &'a str) -> Self {
+        Value::String(s)
+    }
+}
+
+impl From<i64> for Value<'_> {
+    fn from(i: i64) -> Self {
+        Value::Int(i)
+    }
+}
+
+impl From<bool> for Value<'_> {
+    fn from(b: bool) -> Self {
+        Value::Bool(b)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
