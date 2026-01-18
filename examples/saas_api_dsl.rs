@@ -1,3 +1,10 @@
+//! Illustrative scenario: SaaS Multi-tenant API.
+//!
+//! This example demonstrates standard RBAC/Multi-tenancy logic:
+//! 1. Admins have full access to their tenant's resources.
+//! 2. Users can read/list resources within their tenant.
+//! 3. Cross-tenant access is denied by default.
+
 use gate0::{ReasonCode, Request, ctx, policy_builder};
 
 // Application-specific reason codes
