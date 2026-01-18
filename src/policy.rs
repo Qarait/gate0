@@ -37,7 +37,7 @@ impl Default for PolicyConfig {
 }
 
 /// A single authorization rule.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Rule<'a> {
     /// The effect if this rule matches (Allow or Deny).
     pub effect: Effect,
@@ -87,6 +87,11 @@ impl<'a> Policy<'a> {
     /// Create a new policy builder.
     pub fn builder() -> PolicyBuilder<'a> {
         PolicyBuilder::new()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn rules(&self) -> &[Rule<'a>] {
+        &self.rules
     }
 
     /// Create a policy with the given rules and default config.

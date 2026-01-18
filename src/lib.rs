@@ -79,6 +79,7 @@ mod stats;
 mod target;
 mod types;
 mod value;
+mod macros;
 
 // Public API exports
 pub use condition::Condition;
