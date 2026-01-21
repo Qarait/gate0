@@ -1,0 +1,29 @@
+# Example Ephemera policy file
+# This is the schema GateBridge translates
+
+default:
+  principals: ["sandbox"]
+  max_duration: "15m"
+
+policies:
+  - name: "AdminAccess"
+    match:
+      oidc_groups: ["infrastructure", "security-team"]
+      emails: ["*@admin.example.com"]
+    principals: ["root", "admin"]
+    max_duration: "60m"
+
+  - name: "DeveloperAccess"
+    match:
+      oidc_groups: ["developers"]
+      source_ip: ["10.0.0.0/8"]
+      hours: ["09:00-18:00"]
+    principals: ["developer"]
+    max_duration: "30m"
+
+  - name: "ContractorAccess"
+    match:
+      emails: ["*@contractor.example.com"]
+      webauthn_ids: ["yubi-*"]
+    principals: ["readonly"]
+    max_duration: "15m"

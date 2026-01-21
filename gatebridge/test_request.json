@@ -1,0 +1,8 @@
+{
+  "oidc_groups": ["infrastructure"],
+  "email": "alice@admin.example.com",
+  "local_username": null,
+  "source_ip": "10.1.2.3",
+  "current_time": "14:30",
+  "webauthn_id": null
+}
