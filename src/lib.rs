@@ -79,6 +79,7 @@ mod stats;
 mod target;
 mod types;
 mod value;
+mod macros;
 
 // Public API exports
 pub use condition::Condition;
@@ -88,6 +89,10 @@ pub use stats::EvaluationStats;
 pub use target::{Matcher, Target};
 pub use types::{Decision, Effect, ReasonCode, Request, NO_MATCHING_RULE};
 pub use value::Value;
+
+// Re-export dsl if the feature is enabled
+#[cfg(feature = "dsl")]
+pub use gate0_dsl::policy_builder;
 
 #[cfg(test)]
 mod integration_tests {
