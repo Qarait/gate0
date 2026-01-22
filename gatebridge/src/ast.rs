@@ -58,6 +58,15 @@ pub struct MatchBlock {
     pub webauthn_ids: Vec<String>,
 }
 
+/// Metadata for trust budgeting (accounting)
+#[derive(Debug, Clone, Deserialize, serde::Serialize, PartialEq)]
+pub struct TrustBudget {
+    pub budget_id: String,
+    pub cost: i32,
+    pub initial_balance: i32,
+    pub reset_interval_hours: Option<i32>,
+}
+
 impl MatchBlock {
     /// True if any OR trigger is specified.
     pub fn has_triggers(&self) -> bool {
@@ -129,6 +138,7 @@ impl EvalResult {
             policy_index: Some(index),
             principals: policy.principals.clone(),
             max_duration: policy.max_duration.clone(),
+            trust_budget: policy.trust_budget.clone(),
         }
     }
 }

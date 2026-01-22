@@ -23,12 +23,14 @@ pub struct ReferenceDecision {
     pub effect: String,
     pub policy_name: Option<String>,
     pub policy_index: Option<usize>,
+    pub trust_budget: Option<crate::ast::TrustBudget>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct Gate0Decision {
     pub effect: String,
     pub reason_code: u32,
+    pub trust_budget: Option<crate::ast::TrustBudget>,
 }
 
 #[derive(Debug, Serialize)]
@@ -89,15 +91,26 @@ pub fn shadow_evaluate(
 
     let decisions_match = gate0_decision.reason.value() == expected_reason;
 
+    // Get the trust budget from the matched policy for Gate0 result
+    let gate0_trust_budget = if decisions_match && ref_result.matched {
+        ref_result.trust_budget.clone()
+    } else if gate0_decision.reason.value() < policy_file.policies.len() as u32 {
+        policy_file.policies[gate0_decision.reason.value() as usize].trust_budget.clone()
+    } else {
+        None
+    };
+
     Ok(ShadowResult {
         reference_decision: ReferenceDecision {
             effect: ref_effect.to_string(),
             policy_name: ref_result.policy_name,
             policy_index: ref_result.policy_index,
+            trust_budget: ref_result.trust_budget,
         },
         gate0_decision: Gate0Decision {
             effect: gate0_effect.to_string(),
             reason_code: gate0_decision.reason.value(),
+            trust_budget: gate0_trust_budget,
         },
         decisions_match,
         stats: ShadowStats {
