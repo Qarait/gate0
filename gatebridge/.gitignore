@@ -1,0 +1,15 @@
+# GateBridge Artifacts
+target/
+debug/
+release/
+*.exe
+*.pdb
+
+# Fuzzer Failures
+fuzz_failures/
+
+# Test Artifacts
+test_request.json
+example_policy.yaml
+policy-shadow.log
+shadow-debug.log

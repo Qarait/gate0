@@ -5,40 +5,26 @@
 
 A small, auditable, terminating, deterministic micro-policy engine.
 
+## Why Gate0?
+
+I built Gate0 because I was tired of debugging RegEx-based policies in production. I wanted something that was boring, bounded, and impossible to crash. If you want a flexible, general-purpose policy engine, you should use OPA. If you want a policy engine that guarantees sub-50µs execution and zero allocations for security-critical pathways, you want Gate0.
+
 ## Security Model
 
-Gate0 is designed for high-assurance environments where policy evaluation must be deterministic and resource-bounded. See [SECURITY.md](SECURITY.md) for the full threat model, system invariants, and mechanical guarantees.
+Gate0 is designed for high-assurance environments where policy evaluation must be deterministic and resource-bounded. See the [Security Policy](SECURITY.md) for reporting vulnerabilities and the [Security Model](docs/SECURITY_MODEL.md) for the full threat model and mechanical guarantees.
 
 ## Architecture
 
 Gate0 uses a linear, **Deny-Overrides** evaluation strategy. Each rule consists of a **Target** (fast-path match) and an optional **Condition** (deep logic).
 
-```mermaid
-graph TD
-    REQ([Request]) ==> POL
-    
-    subgraph POL [Policy: Ordered Rules]
-        direction TB
-        R1[Rule 1: Deny]
-        R2[Rule 2: Allow]
-        R3[Rule 3: Allow]
-    end
-
-    POL ==> MATCH{Match?}
-    
-    subgraph EVAL [Evaluation Logic]
-        direction LR
-        MATCH -- "Target + Condition" --> DECIDE
-        DECIDE{Effect?}
-        DECIDE -- "Deny" --> D_WIN[Deny Wins]
-        DECIDE -- "Allow" --> A_PEND[Allow Pending]
-    end
-
-    D_WIN ==> FIN([Final Decision])
-    A_PEND -- "Next Rule" --> MATCH
-    MATCH -- "No more rules" --> NO_M
-    NO_M[No Match] ==> D_DEF[Default Deny]
-    D_DEF ==> FIN
+```text
++----------+       +-------------+       +--------+
+| Ephemera | ----> | GateBridge  | ----> | Gate0  |
+| (Legacy) |       | (Normalize) |       | (Core) |
++----------+       +-------------+       +--------+
+     |                    ^
+     |                    |
+     +----(Shadow Log)----+
 ```
 
 ## Verification
@@ -102,9 +88,9 @@ assert!(decision.is_allow());
 
 The `examples/` directory contains illustrative scenarios demonstrating common Gate0 usage patterns:
 
-- **SaaS API**: Standard RBAC/Multi-tenancy logic.
-- **Zero Trust Network**: Attribute-Based Access Control (ABAC) with MFA and location checks.
-- **Complex Overrides**: Demonstrating Deny-Overrides conflict resolution.
+**SaaS API**: Standard RBAC/Multi-tenancy logic.
+**Zero Trust Network**: Attribute-Based Access Control (ABAC) with MFA and location checks.
+**Complex Overrides**: Demonstrating Deny-Overrides conflict resolution.
 
 Run them with:
 ```bash
@@ -112,6 +98,22 @@ cargo run --example saas_api
 cargo run --example zero_trust_network
 cargo run --example complex_overrides
 ```
+
+## Limitations
+ 
+Gate0 is intentionally constrained to remain predictable and performant. 
+ 
+**No Complex Matchers**: Logic like full Bit-Mask CIDR or advanced Regex remains the responsibility of the adapter layer. Gate0 evaluates pre-processed primitives.
+ 
+**No Native Multithreading**: The current FFI implementation for Python is not thread-safe. High-concurrency users should use multiprocessing or wait for the Phase 4 FFI stabilization which will address global locks.
+ 
+**No Overlapping Decisions**: Within a single effect class (Allow/Deny), only the first matching rule is returned. Conflict resolution is strictly order-dependent.
+
+## Community Extensions
+
+The following projects extend the Gate0 engine for specialized use cases.
+
+**gate0_dsl**: A Rust-native Domain Specific Language for Gate0 developed by **hardliner66**. It leverages Rust macros to provide a clean and readable syntax for defining policies directly in code. You can find the implementation and documentation at [hardliner66/gate0_dsl](https://github.com/hardliner66/gate0_dsl).
 
 ## License
 

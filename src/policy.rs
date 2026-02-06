@@ -144,6 +144,13 @@ impl<'a> Policy<'a> {
         self.rules.len()
     }
 
+    /// Get a reference to the rules in this policy.
+    ///
+    /// Useful for tooling, testing, and policy introspection.
+    pub fn rules(&self) -> &[Rule<'a>] {
+        &self.rules
+    }
+
     /// Get the configuration for this policy.
     pub fn config(&self) -> &PolicyConfig {
         &self.config
