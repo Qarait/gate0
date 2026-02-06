@@ -37,7 +37,7 @@ impl Default for PolicyConfig {
 }
 
 /// A single authorization rule.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Rule<'a> {
     /// The effect if this rule matches (Allow or Deny).
     pub effect: Effect,
